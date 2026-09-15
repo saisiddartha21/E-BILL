@@ -2,7 +2,7 @@ import { PrismaClient } from '@prisma/client';
 import fs from 'fs';
 import path from 'path';
 
-function getDatabaseUrl(): string {
+function initializeDatabase(): string {
   // If user configured a custom external database URL (e.g. Postgres / Supabase / Turso), use it
   if (process.env.DATABASE_URL && !process.env.DATABASE_URL.includes('dev.db')) {
     return process.env.DATABASE_URL;
@@ -11,24 +11,41 @@ function getDatabaseUrl(): string {
   // On Vercel / serverless runtime, copy bundled dev.db to writable /tmp directory if needed
   if (process.env.VERCEL || process.env.NODE_ENV === 'production') {
     const tmpDbPath = path.join('/tmp', 'dev.db');
-    const bundledDbPath = path.join(process.cwd(), 'prisma', 'dev.db');
 
-    try {
-      if (!fs.existsSync(tmpDbPath) && fs.existsSync(bundledDbPath)) {
-        fs.copyFileSync(bundledDbPath, tmpDbPath);
+    if (!fs.existsSync(tmpDbPath)) {
+      const possibleBundledPaths = [
+        path.join(process.cwd(), 'prisma', 'dev.db'),
+        path.join(process.cwd(), 'dev.db'),
+        path.resolve('./prisma/dev.db'),
+        path.resolve('./dev.db'),
+      ];
+
+      let copied = false;
+      for (const srcPath of possibleBundledPaths) {
+        if (fs.existsSync(srcPath)) {
+          try {
+            fs.copyFileSync(srcPath, tmpDbPath);
+            copied = true;
+            console.log(`Copied SQLite DB from ${srcPath} to ${tmpDbPath}`);
+            break;
+          } catch (err) {
+            console.error(`Failed to copy DB from ${srcPath}:`, err);
+          }
+        }
       }
-      if (fs.existsSync(tmpDbPath)) {
-        return `file:${tmpDbPath}`;
+
+      if (!copied) {
+        console.warn('Bundled dev.db not found. Fallback to /tmp/dev.db');
       }
-    } catch (e) {
-      console.error('Failed to copy SQLite database to /tmp:', e);
     }
+
+    return `file:${tmpDbPath}`;
   }
 
   return process.env.DATABASE_URL || 'file:./dev.db';
 }
 
-process.env.DATABASE_URL = getDatabaseUrl();
+process.env.DATABASE_URL = initializeDatabase();
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
