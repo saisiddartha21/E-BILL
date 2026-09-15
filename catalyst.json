@@ -1,0 +1,10 @@
+{
+  "appsail": [
+    {
+      "name": "sri-vaishnavi-traders",
+      "stack": "node18",
+      "build_command": "npm run build",
+      "start_command": "npm start"
+    }
+  ]
+}

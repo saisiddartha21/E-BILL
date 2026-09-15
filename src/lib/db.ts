@@ -3,46 +3,50 @@ import fs from 'fs';
 import path from 'path';
 
 function initializeDatabase(): string {
-  // If user configured a custom external database URL (e.g. Postgres / Supabase / Turso), use it
-  if (process.env.DATABASE_URL && !process.env.DATABASE_URL.includes('dev.db')) {
+  // 1. If explicit DATABASE_URL is set in environment (e.g. Postgres/MySQL/Turso/Supabase or explicit SQLite path)
+  if (process.env.DATABASE_URL && process.env.DATABASE_URL.trim() !== '') {
     return process.env.DATABASE_URL;
   }
 
-  // On Vercel / serverless runtime, copy bundled dev.db to writable /tmp directory if needed
-  if (process.env.VERCEL || process.env.NODE_ENV === 'production') {
-    const tmpDbPath = path.join('/tmp', 'dev.db');
+  // 2. Check if local prisma/dev.db exists and is accessible
+  const localDbPath = path.join(process.cwd(), 'prisma', 'dev.db');
+  if (fs.existsSync(localDbPath)) {
+    try {
+      fs.accessSync(localDbPath, fs.constants.R_OK);
+      return `file:${localDbPath}`;
+    } catch (err) {
+      console.warn('Local dev.db exists but not readable, falling back to /tmp/dev.db');
+    }
+  }
 
-    if (!fs.existsSync(tmpDbPath)) {
-      const possibleBundledPaths = [
-        path.join(process.cwd(), 'prisma', 'dev.db'),
-        path.join(process.cwd(), 'dev.db'),
-        path.resolve('./prisma/dev.db'),
-        path.resolve('./dev.db'),
-      ];
+  // 3. For serverless container environments (Zoho Catalyst AppSail, Vercel, AWS Lambda), fallback to /tmp/dev.db
+  const tmpDbPath = path.join('/tmp', 'dev.db');
+  if (!fs.existsSync(tmpDbPath)) {
+    const possibleBundledPaths = [
+      localDbPath,
+      path.join(process.cwd(), 'dev.db'),
+      path.resolve('./prisma/dev.db'),
+      path.resolve('./dev.db'),
+    ];
 
-      let copied = false;
-      for (const srcPath of possibleBundledPaths) {
-        if (fs.existsSync(srcPath)) {
-          try {
-            fs.copyFileSync(srcPath, tmpDbPath);
-            copied = true;
-            console.log(`Copied SQLite DB from ${srcPath} to ${tmpDbPath}`);
-            break;
-          } catch (err) {
-            console.error(`Failed to copy DB from ${srcPath}:`, err);
-          }
+    for (const srcPath of possibleBundledPaths) {
+      if (fs.existsSync(srcPath)) {
+        try {
+          fs.copyFileSync(srcPath, tmpDbPath);
+          console.log(`Copied SQLite DB from ${srcPath} to ${tmpDbPath}`);
+          break;
+        } catch (err) {
+          console.error(`Failed to copy DB from ${srcPath}:`, err);
         }
       }
-
-      if (!copied) {
-        console.warn('Bundled dev.db not found. Fallback to /tmp/dev.db');
-      }
     }
+  }
 
+  if (fs.existsSync(tmpDbPath)) {
     return `file:${tmpDbPath}`;
   }
 
-  return process.env.DATABASE_URL || 'file:./dev.db';
+  return 'file:./prisma/dev.db';
 }
 
 process.env.DATABASE_URL = initializeDatabase();
