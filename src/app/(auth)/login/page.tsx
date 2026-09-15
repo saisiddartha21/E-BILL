@@ -42,17 +42,23 @@ export default function LoginPage() {
         body: JSON.stringify(data),
       });
 
-      const result = await response.json();
+      let result;
+      try {
+        result = await response.json();
+      } catch (e) {
+        setError(`Server communication error (${response.status}). Please try again.`);
+        return;
+      }
 
       if (!response.ok || !result.success) {
-        setError(result.error || 'Login failed');
+        setError(result.error || 'Invalid username or password');
         return;
       }
 
       router.push('/');
       router.refresh();
-    } catch (err) {
-      setError('An unexpected error occurred. Please try again.');
+    } catch (err: any) {
+      setError(err?.message || 'An unexpected error occurred. Please try again.');
     }
   };
 

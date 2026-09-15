@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbo",
-    "build": "npx cross-env DATABASE_URL=\"file:./dev.db\" prisma db push --accept-data-loss && npx cross-env DATABASE_URL=\"file:./dev.db\" tsx prisma/seed.ts && npx cross-env DATABASE_URL=\"file:./dev.db\" next build",
+    "build": "prisma generate && next build",
     "start": "next start",
     "lint": "next lint",
     "db:generate": "prisma generate",
