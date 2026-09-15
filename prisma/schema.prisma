@@ -1,0 +1,546 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// 1. USERS & AUTHENTICATION
+// ============================================
+model User {
+  id           String   @id @default(cuid())
+  username     String   @unique
+  name         String
+  passwordHash String
+  role         String   @default("STAFF") // ADMIN | STAFF
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  invoices       SalesInvoice[]
+  purchases      Purchase[]
+  stockMovements StockMovement[]
+  auditLogs      AuditLog[]
+}
+
+// ============================================
+// 2. COMPANY SETTINGS
+// ============================================
+model CompanySettings {
+  id                   String  @id @default("default")
+  companyName          String  @default("SRI VAISHNAVI TRADERS")
+  shopAddress          String  @default("")
+  city                 String  @default("")
+  mobileNumber         String  @default("")
+  alternateMobile      String  @default("")
+  email                String  @default("")
+  gstin                String  @default("")
+  state                String  @default("Telangana")
+  stateCode            String  @default("36")
+  pincode              String  @default("")
+  logoUrl              String  @default("")
+  bankName             String  @default("")
+  accountHolderName    String  @default("")
+  accountNumber        String  @default("")
+  ifscCode             String  @default("")
+  bankBranch           String  @default("")
+  invoicePrefix        String  @default("SVE")
+  startingInvoiceNo    Int     @default(1)
+  currentInvoiceNo     Int     @default(0)
+  financialYearStart   String  @default("2026-04-01")
+  defaultGstRate       Float   @default(18.0)
+  termsAndConditions   String  @default("Goods once sold will not be taken back or exchanged. All disputes subject to local jurisdiction.")
+  authorizedSignatory  String  @default("")
+  enableNegativeStock  Boolean @default(false)
+  enableCustomGstRates Boolean @default(false)
+
+  updatedAt DateTime @updatedAt @default(now())
+}
+
+// ============================================
+// 3. CATEGORIES
+// ============================================
+model Category {
+  id          String    @id @default(cuid())
+  name        String    @unique
+  description String    @default("")
+  isDefault   Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  products    Product[]
+}
+
+// ============================================
+// 4. PRODUCTS
+// ============================================
+model Product {
+  id             String   @id @default(cuid())
+  sku            String   @unique
+  name           String
+  categoryId     String
+  category       Category @relation(fields: [categoryId], references: [id])
+  brand          String   @default("")
+  description    String   @default("")
+  hsnCode        String   @default("")
+  unit           String   @default("NOS") // NOS, MTR, PCS, BOX, KG, SET, LTR, FT, BND, PKT
+  purchasePrice  Float    @default(0)
+  sellingPrice   Float    @default(0)
+  mrp            Float    @default(0)
+  gstRate        Float    @default(18)    // 0, 5, 12, 18, 28 or custom
+  openingStock   Float    @default(0)
+  currentStock   Float    @default(0)
+  minStockLevel  Float    @default(5)
+  supplierId     String?
+  supplier       Supplier? @relation(fields: [supplierId], references: [id])
+  barcode        String?   @unique
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  salesInvoiceItems    SalesInvoiceItem[]
+  purchaseItems        PurchaseItem[]
+  stockMovements       StockMovement[]
+  salesReturnItems     SalesReturnItem[]
+  purchaseReturnItems  PurchaseReturnItem[]
+}
+
+// ============================================
+// 5. CUSTOMERS
+// ============================================
+model Customer {
+  id              String   @id @default(cuid())
+  name            String
+  mobile          String   @unique
+  alternateMobile String   @default("")
+  email           String   @default("")
+  billingAddress  String   @default("")
+  shippingAddress String   @default("")
+  gstin           String   @default("")
+  state           String   @default("Telangana")
+  stateCode       String   @default("36")
+  pincode         String   @default("")
+  customerType    String   @default("RETAIL") // RETAIL | BUSINESS
+  openingBalance  Float    @default(0)
+  currentBalance  Float    @default(0) // Positive = customer owes money
+  creditLimit     Float    @default(0)
+  notes           String   @default("")
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  invoices     SalesInvoice[]
+  payments     Payment[]
+  salesReturns SalesReturn[]
+}
+
+// ============================================
+// 6. SUPPLIERS
+// ============================================
+model Supplier {
+  id             String   @id @default(cuid())
+  name           String
+  contactPerson  String   @default("")
+  mobile         String
+  email          String   @default("")
+  address        String   @default("")
+  gstin          String   @default("")
+  state          String   @default("Telangana")
+  stateCode      String   @default("36")
+  openingBalance Float    @default(0)
+  currentBalance Float    @default(0) // Positive = we owe supplier
+  notes          String   @default("")
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  products        Product[]
+  purchases       Purchase[]
+  payments        Payment[]
+  purchaseReturns PurchaseReturn[]
+}
+
+// ============================================
+// 7. PURCHASES
+// ============================================
+model Purchase {
+  id              String   @id @default(cuid())
+  purchaseNumber  String   @unique
+  supplierId      String
+  supplier        Supplier @relation(fields: [supplierId], references: [id])
+  purchaseDate    DateTime @default(now())
+  supplierInvoice String   @default("") // Supplier's invoice number
+  subtotal        Float    @default(0)
+  discountAmount  Float    @default(0)
+  taxableAmount   Float    @default(0)
+  cgstTotal       Float    @default(0)
+  sgstTotal       Float    @default(0)
+  igstTotal       Float    @default(0)
+  totalTax        Float    @default(0)
+  roundOff        Float    @default(0)
+  grandTotal      Float    @default(0)
+  paymentStatus   String   @default("PENDING") // PAID | PARTIAL | PENDING
+  paidAmount      Float    @default(0)
+  pendingAmount   Float    @default(0)
+  paymentMode     String   @default("CASH") // CASH, UPI, CARD, BANK_TRANSFER, CREDIT, OTHER
+  notes           String   @default("")
+  createdById     String
+  createdBy       User     @relation(fields: [createdById], references: [id])
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  items           PurchaseItem[]
+  purchaseReturns PurchaseReturn[]
+}
+
+model PurchaseItem {
+  id            String   @id @default(cuid())
+  purchaseId    String
+  purchase      Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  productId     String
+  product       Product  @relation(fields: [productId], references: [id])
+  quantity      Float
+  unit          String   @default("NOS")
+  rate          Float    @default(0)
+  discount      Float    @default(0)
+  taxableAmount Float    @default(0)
+  gstRate       Float    @default(18)
+  cgstAmount    Float    @default(0)
+  sgstAmount    Float    @default(0)
+  igstAmount    Float    @default(0)
+  totalAmount   Float    @default(0)
+}
+
+// ============================================
+// 8. SALES INVOICES
+// ============================================
+model SalesInvoice {
+  id               String   @id @default(cuid())
+  invoiceNumber    String   @unique
+  invoiceDate      DateTime @default(now())
+  
+  // Customer details (denormalized for cash customers)
+  customerId       String?
+  customer         Customer? @relation(fields: [customerId], references: [id])
+  customerName     String   @default("Cash Customer")
+  customerMobile   String   @default("")
+  customerAddress  String   @default("")
+  customerGstin    String   @default("")
+  customerState    String   @default("Telangana")
+  customerStateCode String  @default("36")
+  
+  // Shipping
+  shippingAddress  String   @default("")
+  placeOfSupply    String   @default("36-Telangana")
+  isInterState     Boolean  @default(false)
+  
+  // Amounts
+  subtotal         Float    @default(0)
+  itemDiscount     Float    @default(0)  // Sum of item-wise discounts
+  invoiceDiscount  Float    @default(0)  // Overall invoice discount
+  invoiceDiscountType String @default("PERCENTAGE") // PERCENTAGE | FIXED
+  invoiceDiscountValue Float @default(0)
+  taxableAmount    Float    @default(0)
+  cgstTotal        Float    @default(0)
+  sgstTotal        Float    @default(0)
+  igstTotal        Float    @default(0)
+  totalTax         Float    @default(0)
+  roundOff         Float    @default(0)
+  grandTotal       Float    @default(0)
+  amountInWords    String   @default("")
+  
+  // Payment
+  paymentMode      String   @default("CASH")
+  paymentStatus    String   @default("PAID") // PAID | PARTIAL | PENDING
+  paidAmount       Float    @default(0)
+  balanceAmount    Float    @default(0)
+  
+  // Status
+  status           String   @default("ACTIVE") // ACTIVE | CANCELLED
+  cancelReason     String   @default("")
+  
+  // E-Invoice
+  eInvoiceStatus   String   @default("NOT_GENERATED") // NOT_GENERATED | READY | SUBMITTED | GENERATED | FAILED | CANCELLED
+  irnNumber        String   @default("")
+  ackNumber        String   @default("")
+  ackDate          String   @default("")
+  signedQrCode     String   @default("")
+  eInvoiceError    String   @default("")
+  
+  // E-Way Bill
+  eWayBillStatus   String   @default("NOT_GENERATED") // NOT_GENERATED | DRAFT | READY | GENERATED | FAILED | CANCELLED | EXPIRED
+  eWayBillNumber   String   @default("")
+  eWayBillDate     String   @default("")
+  eWayBillValidTo  String   @default("")
+  transporterId    String   @default("")
+  transporterName  String   @default("")
+  transportMode    String   @default("") // ROAD | RAIL | AIR | SHIP
+  vehicleNumber    String   @default("")
+  vehicleType      String   @default("") // REGULAR | OVER DIMENSIONAL CARGO
+  approxDistance   Float    @default(0)
+  eWayBillError    String   @default("")
+  
+  notes            String   @default("")
+  
+  createdById      String
+  createdBy        User     @relation(fields: [createdById], references: [id])
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  
+  items            SalesInvoiceItem[]
+  payments         Payment[]
+  salesReturns     SalesReturn[]
+}
+
+model SalesInvoiceItem {
+  id             String       @id @default(cuid())
+  invoiceId      String
+  invoice        SalesInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  productId      String
+  product        Product      @relation(fields: [productId], references: [id])
+  productName    String
+  hsnCode        String       @default("")
+  unit           String       @default("NOS")
+  quantity       Float
+  rate           Float        @default(0)
+  mrp            Float        @default(0)
+  discountPercent Float       @default(0)
+  discountAmount Float        @default(0)
+  taxableAmount  Float        @default(0)
+  gstRate        Float        @default(18)
+  cgstRate       Float        @default(9)
+  cgstAmount     Float        @default(0)
+  sgstRate       Float        @default(9)
+  sgstAmount     Float        @default(0)
+  igstRate       Float        @default(0)
+  igstAmount     Float        @default(0)
+  totalAmount    Float        @default(0)
+}
+
+// ============================================
+// 9. PAYMENTS
+// ============================================
+model Payment {
+  id           String        @id @default(cuid())
+  paymentDate  DateTime      @default(now())
+  amount       Float
+  paymentMode  String        @default("CASH") // CASH, UPI, CARD, BANK_TRANSFER, CREDIT, OTHER
+  paymentType  String        @default("RECEIVED") // RECEIVED (from customer) | MADE (to supplier)
+  referenceNo  String        @default("")
+  notes        String        @default("")
+  
+  customerId   String?
+  customer     Customer?     @relation(fields: [customerId], references: [id])
+  supplierId   String?
+  supplier     Supplier?     @relation(fields: [supplierId], references: [id])
+  invoiceId    String?
+  invoice      SalesInvoice? @relation(fields: [invoiceId], references: [id])
+  
+  createdAt    DateTime      @default(now())
+}
+
+// ============================================
+// 10. STOCK MOVEMENTS
+// ============================================
+model StockMovement {
+  id              String   @id @default(cuid())
+  productId       String
+  product         Product  @relation(fields: [productId], references: [id])
+  movementDate    DateTime @default(now())
+  transactionType String   // OPENING_STOCK | PURCHASE | SALE | SALES_RETURN | PURCHASE_RETURN | ADJUSTMENT
+  referenceType   String   @default("") // PURCHASE | INVOICE | SALES_RETURN | PURCHASE_RETURN | MANUAL
+  referenceId     String   @default("")
+  referenceNumber String   @default("")
+  quantityIn      Float    @default(0)
+  quantityOut     Float    @default(0)
+  balanceAfter    Float    @default(0)
+  notes           String   @default("")
+  
+  userId          String?
+  user            User?    @relation(fields: [userId], references: [id])
+  
+  createdAt       DateTime @default(now())
+}
+
+// ============================================
+// 11. SALES RETURNS
+// ============================================
+model SalesReturn {
+  id               String        @id @default(cuid())
+  returnNumber     String        @unique
+  returnDate       DateTime      @default(now())
+  invoiceId        String
+  invoice          SalesInvoice  @relation(fields: [invoiceId], references: [id])
+  customerId       String?
+  customer         Customer?     @relation(fields: [customerId], references: [id])
+  
+  subtotal         Float         @default(0)
+  taxableAmount    Float         @default(0)
+  cgstTotal        Float         @default(0)
+  sgstTotal        Float         @default(0)
+  igstTotal        Float         @default(0)
+  totalTax         Float         @default(0)
+  grandTotal       Float         @default(0)
+  reason           String        @default("")
+  notes            String        @default("")
+  
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  
+  items            SalesReturnItem[]
+}
+
+model SalesReturnItem {
+  id             String      @id @default(cuid())
+  salesReturnId  String
+  salesReturn    SalesReturn @relation(fields: [salesReturnId], references: [id], onDelete: Cascade)
+  productId      String
+  product        Product     @relation(fields: [productId], references: [id])
+  productName    String
+  quantity       Float
+  rate           Float       @default(0)
+  taxableAmount  Float       @default(0)
+  gstRate        Float       @default(18)
+  cgstAmount     Float       @default(0)
+  sgstAmount     Float       @default(0)
+  igstAmount     Float       @default(0)
+  totalAmount    Float       @default(0)
+}
+
+// ============================================
+// 12. PURCHASE RETURNS
+// ============================================
+model PurchaseReturn {
+  id               String   @id @default(cuid())
+  returnNumber     String   @unique
+  returnDate       DateTime @default(now())
+  purchaseId       String
+  purchase         Purchase @relation(fields: [purchaseId], references: [id])
+  supplierId       String
+  supplier         Supplier @relation(fields: [supplierId], references: [id])
+  
+  subtotal         Float    @default(0)
+  taxableAmount    Float    @default(0)
+  cgstTotal        Float    @default(0)
+  sgstTotal        Float    @default(0)
+  igstTotal        Float    @default(0)
+  totalTax         Float    @default(0)
+  grandTotal       Float    @default(0)
+  reason           String   @default("")
+  notes            String   @default("")
+  
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  
+  items            PurchaseReturnItem[]
+}
+
+model PurchaseReturnItem {
+  id               String         @id @default(cuid())
+  purchaseReturnId String
+  purchaseReturn   PurchaseReturn @relation(fields: [purchaseReturnId], references: [id], onDelete: Cascade)
+  productId        String
+  product          Product        @relation(fields: [productId], references: [id])
+  productName      String
+  quantity         Float
+  rate             Float          @default(0)
+  taxableAmount    Float          @default(0)
+  gstRate          Float          @default(18)
+  cgstAmount       Float          @default(0)
+  sgstAmount       Float          @default(0)
+  igstAmount       Float          @default(0)
+  totalAmount      Float          @default(0)
+}
+
+// ============================================
+// 13. E-INVOICE RECORDS
+// ============================================
+model EInvoiceRecord {
+  id              String   @id @default(cuid())
+  invoiceId       String
+  status          String   @default("NOT_GENERATED") // NOT_GENERATED | READY | SUBMITTED | GENERATED | FAILED | CANCELLED
+  requestPayload  String   @default("") // JSON payload sent
+  responsePayload String   @default("") // JSON response received
+  irnNumber       String   @default("")
+  ackNumber       String   @default("")
+  ackDate         String   @default("")
+  signedQrCode    String   @default("")
+  signedInvoice   String   @default("")
+  cancelReason    String   @default("")
+  cancelDate      String   @default("")
+  errorMessage    String   @default("")
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// ============================================
+// 14. E-WAY BILL RECORDS
+// ============================================
+model EWayBillRecord {
+  id              String   @id @default(cuid())
+  invoiceId       String
+  status          String   @default("DRAFT") // DRAFT | READY | GENERATED | FAILED | CANCELLED | EXPIRED
+  supplyType      String   @default("OUTWARD")
+  subSupplyType   String   @default("SUPPLY")
+  docType         String   @default("TAX_INVOICE")
+  fromGstin       String   @default("")
+  toGstin         String   @default("")
+  deliveryAddress String   @default("")
+  placeOfSupply   String   @default("")
+  transporterId   String   @default("")
+  transporterName String   @default("")
+  transportMode   String   @default("ROAD")
+  vehicleNumber   String   @default("")
+  vehicleType     String   @default("REGULAR")
+  approxDistance   Float    @default(0)
+  transDocNumber  String   @default("")
+  transDocDate    String   @default("")
+  
+  requestPayload  String   @default("")
+  responsePayload String   @default("")
+  ewayBillNumber  String   @default("")
+  ewayBillDate    String   @default("")
+  validUpto       String   @default("")
+  cancelReason    String   @default("")
+  cancelDate      String   @default("")
+  errorMessage    String   @default("")
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// ============================================
+// 15. EXPENSES
+// ============================================
+model Expense {
+  id           String   @id @default(cuid())
+  expenseDate  DateTime @default(now())
+  category     String   @default("GENERAL") // RENT, ELECTRICITY, SALARY, TRANSPORT, GENERAL, OTHER
+  amount       Float
+  description  String   @default("")
+  paymentMode  String   @default("CASH")
+  referenceNo  String   @default("")
+  
+  createdAt    DateTime @default(now())
+}
+
+// ============================================
+// 16. AUDIT LOGS
+// ============================================
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id])
+  action     String   // LOGIN, INVOICE_CREATED, INVOICE_EDITED, INVOICE_CANCELLED, PAYMENT_RECORDED, PRODUCT_ADDED, STOCK_ADJUSTED, PURCHASE_CREATED, CUSTOMER_CREATED, SETTINGS_CHANGED, etc.
+  entity     String   @default("") // INVOICE, PRODUCT, CUSTOMER, SUPPLIER, PURCHASE, PAYMENT, STOCK, SETTINGS, AUTH
+  entityId   String   @default("")
+  details    String   @default("") // JSON with additional context
+  ipAddress  String   @default("")
+  createdAt  DateTime @default(now())
+}

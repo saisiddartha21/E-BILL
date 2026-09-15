@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Sri Vaishnavi Traders</title>
+  <desc id="desc">SVT plumbing and sanitaryware mark</desc>
+  <rect width="512" height="512" rx="48" fill="#f8fafc"/>
+  <path d="M88 142 256 52l168 90-26 14-142-75-142 75z" fill="#102957"/>
+  <path d="m307 88 99 53-26 14-99-53z" fill="#b78325"/>
+  <path d="M83 275c31-55 72-82 125-82 48 0 77 17 103 50l-40 25c-18-22-36-33-63-33-26 0-48 14-63 40z" fill="#102957"/>
+  <path d="M186 193h72l-30 55 46 83h-55l-37-70z" fill="#bd8625"/>
+  <path d="M289 194h65l-49 137h-57z" fill="#102957"/>
+  <path d="M241 180v-20h-22v20h-18v14h58v-14zM236 154h9v-18h-9z" fill="#102957"/>
+  <path d="M214 187v34h-18v20h55v-20h-17v-34z" fill="#102957"/>
+  <path d="M160 346c54 28 119 35 185 19 43-10 78-29 105-52-21 38-57 69-105 87-80 30-158 19-222-16z" fill="#0874bc"/>
+  <path d="M122 366c70 33 154 36 229 12 42-13 76-34 103-63-23 48-67 83-126 102-79 25-155 12-206-20z" fill="#102957"/>
+  <text x="256" y="405" text-anchor="middle" font-family="Georgia,serif" font-size="23" letter-spacing="8" fill="#102957">SRI</text>
+  <text x="256" y="438" text-anchor="middle" font-family="Georgia,serif" font-size="34" letter-spacing="2" fill="#102957">VAISHNAVI</text>
+  <text x="256" y="469" text-anchor="middle" font-family="Arial,sans-serif" font-weight="700" font-size="20" letter-spacing="7" fill="#b78325">TRADERS</text>
+</svg>
